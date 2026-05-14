@@ -10,20 +10,24 @@
         src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c0aff5d8d60d26dbd5c92e48b0aeac3f&libraries=services">
     </script>
 
-    <!-- 귀여운 폰트 -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
-
+    <!-- 학교안심나들이체 -->
     <style>
+        @font-face {
+            font-family: 'SchoolSafety';
+            src: url('https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2201-2@1.0/SchoolSafety.woff') format('woff');
+            font-weight: normal;
+            font-style: normal;
+        }
+
         *{
             margin:0;
             padding:0;
             box-sizing:border-box;
-            font-family:'Gaegu', cursive;
+            font-family:'SchoolSafety', sans-serif;
         }
 
         body, html{
+            width:100%;
             height:100%;
             overflow:hidden;
             background:#fff8fb;
@@ -33,7 +37,6 @@
             display:flex;
             width:100%;
             height:100vh;
-            position:relative;
         }
 
         /* 왼쪽 메뉴 */
@@ -42,20 +45,26 @@
             height:100%;
             background:white;
             border-right:3px dashed #ffc8dd;
-            padding:20px;
+            padding:18px;
             overflow-y:auto;
-            z-index:10;
             box-shadow:4px 0 10px rgba(0,0,0,0.05);
+        }
+
+        /* 작은 빵 일러스트 */
+        .mini-bread{
+            font-size:18px;
+            margin-bottom:8px;
+            opacity:0.9;
         }
 
         .title{
             text-align:center;
-            font-size:42px;
+            font-size:38px;
             color:#ff72ac;
-            margin-bottom:20px;
-            font-weight:bold;
+            margin-bottom:18px;
         }
 
+        /* 검색창 */
         .search_box{
             margin-bottom:20px;
         }
@@ -71,7 +80,7 @@
             border:2px solid #ffc8dd;
             border-radius:15px;
             outline:none;
-            font-size:18px;
+            font-size:17px;
             background:#fff8fb;
         }
 
@@ -81,17 +90,17 @@
             border-radius:15px;
             background:#ff9ec4;
             color:white;
-            font-size:17px;
+            font-size:16px;
             cursor:pointer;
             transition:0.2s;
         }
 
         .search_box button:hover{
             background:#ff7eb6;
-            transform:scale(1.05);
+            transform:scale(1.04);
         }
 
-        /* 검색 리스트 */
+        /* 검색 결과 */
         #placesList{
             list-style:none;
         }
@@ -108,17 +117,16 @@
 
         #placesList li:hover{
             background:#ffeaf3;
-            transform:translateY(-2px);
         }
 
         #placesList li h5{
             color:#ff5fa2;
-            font-size:22px;
-            margin-bottom:5px;
+            font-size:20px;
+            margin-bottom:4px;
         }
 
         #placesList li span{
-            font-size:15px;
+            font-size:14px;
             color:#666;
         }
 
@@ -128,35 +136,6 @@
             height:100%;
         }
 
-        /* 빵 일러스트 */
-        .bread{
-            position:absolute;
-            z-index:20;
-            font-size:38px;
-            user-select:none;
-            pointer-events:none;
-        }
-
-        .bread1{
-            top:12px;
-            right:20px;
-        }
-
-        .bread2{
-            bottom:18px;
-            right:28px;
-        }
-
-        .bread3{
-            top:15px;
-            left:385px;
-        }
-
-        .bread4{
-            bottom:18px;
-            left:380px;
-        }
-
     </style>
 </head>
 
@@ -164,17 +143,20 @@
 
 <div class="container">
 
-    <!-- 귀여운 빵 -->
-    <div class="bread bread1">🍩</div>
-    <div class="bread bread2">🧁</div>
-    <div class="bread bread3">🥐</div>
-    <div class="bread bread4">🥖</div>
-
-    <!-- 왼쪽 검색창 -->
+    <!-- 왼쪽 -->
     <div id="menu_wrap">
 
-        <div class="title">🍓 냠냠 베이커리 🍞</div>
+        <!-- 작은 빵 -->
+        <div class="mini-bread">
+            🍩 🧁 🥐 🥖
+        </div>
 
+        <!-- 제목 -->
+        <div class="title">
+            🍓 냠냠 베이커리 🍞
+        </div>
+
+        <!-- 검색창 -->
         <div class="search_box">
             <form onsubmit="searchPlaces(); return false;">
                 <input
@@ -187,6 +169,7 @@
             </form>
         </div>
 
+        <!-- 검색 결과 -->
         <ul id="placesList"></ul>
 
     </div>
@@ -220,7 +203,7 @@
     });
 
     // 현재 위치 표시
-    if (navigator.geolocation) {
+    if(navigator.geolocation){
 
         navigator.geolocation.getCurrentPosition(function(position){
 
@@ -230,26 +213,25 @@
             var locPosition = new kakao.maps.LatLng(lat, lon);
 
             // 현재 위치 마커
-            var currentMarker = new kakao.maps.CustomOverlay({
+            var currentOverlay = new kakao.maps.CustomOverlay({
                 position: locPosition,
                 content:
                 `
                 <div style="
                     background:#87cefa;
                     color:white;
-                    padding:10px 14px;
+                    padding:9px 13px;
                     border-radius:20px;
-                    font-size:16px;
-                    font-weight:bold;
-                    box-shadow:0 2px 6px rgba(0,0,0,0.2);
+                    font-size:15px;
                     border:2px solid white;
+                    box-shadow:0 2px 6px rgba(0,0,0,0.2);
                 ">
                     📍 내 위치
                 </div>
                 `
             });
 
-            currentMarker.setMap(map);
+            currentOverlay.setMap(map);
 
             map.setCenter(locPosition);
 
@@ -382,14 +364,14 @@
         markers = [];
     }
 
-    // 인포윈도우 표시
+    // 인포윈도우
     function displayInfowindow(marker, title){
 
         var content =
         `
         <div style="
-            padding:10px 15px;
-            font-size:18px;
+            padding:10px 14px;
+            font-size:16px;
             color:#ff5fa2;
             background:white;
             border-radius:15px;
