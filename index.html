@@ -55,7 +55,7 @@
         .tab_container {
             display: flex;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .tab_btn {
             flex: 1;
@@ -76,6 +76,31 @@
         #tab_paid { border: 2px solid var(--point-orange); color: var(--point-orange); }
         #tab_paid.active { background: var(--point-orange); color: white; }
 
+        /* [다시 추가] 검색창 스타일 */
+        .search_box { margin-bottom: 20px; position: relative; }
+        .search_box input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 3px solid var(--point-blue);
+            border-radius: 20px;
+            font-size: 20px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .search_box button {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            padding: 8px 15px;
+            background: var(--point-blue);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+
         /* 리스트 스타일 */
         #placesList { list-style: none; padding: 0; overflow-y: auto; flex: 1; margin: 0; }
         #placesList li {
@@ -91,9 +116,8 @@
             transform: scale(1.02); 
             border: 1px solid var(--point-blue);
         }
-        .paid-hover:hover {
-            border-color: var(--point-orange) !important;
-        }
+        .paid-hover:hover { border-color: var(--point-orange) !important; }
+        
         #placesList li h5 { color: #1A5276; font-size: 22px; margin: 0 0 5px 0; }
         #placesList li span { font-size: 16px; color: #666; }
         .category-tag {
@@ -101,8 +125,7 @@
             font-size: 12px;
             padding: 2px 6px;
             border-radius: 5px;
-            background: #ddd;
-            color: #333;
+            color: white;
             margin-bottom: 5px;
         }
 
@@ -128,6 +151,13 @@
             <button id="tab_paid" class="tab_btn" onclick="switchTab('paid')">유료 쉼터 ☕</button>
         </div>
         
+        <div class="search_box">
+            <form onsubmit="searchPlaces(); return false;">
+                <input type="text" value="종로" id="keyword" placeholder="동네 이름이나 역 이름을 검색하세요!">
+                <button type="submit" id="search_btn">찾기</button>
+            </form>
+        </div>
+        
         <ul id="placesList"></ul>
     </div>
 
@@ -137,8 +167,8 @@
 <script>
     var mapContainer = document.getElementById('map'); 
     var mapOption = { 
-        center: new kakao.maps.LatLng(37.556, 126.97), /* 서울 중심부 */
-        level: 5 /* 카테고리 검색 특성상 주변을 잘 보게 하기 위해 레벨을 조금 확대했습니다 */
+        center: new kakao.maps.LatLng(37.556, 126.97), 
+        level: 5 
     }; 
 
     var map = new kakao.maps.Map(mapContainer, mapOption); 
@@ -148,18 +178,13 @@
     // 현재 선택된 탭 상태 ('free' 또는 'paid')
     var currentTab = 'free'; 
 
-    // [내 위치 마커] 더워서 지친 땀방울 이모티콘 (🥵)
+    // [내 위치 마커]
     var myCurrentPosition = new kakao.maps.LatLng(37.556, 126.97);
     var currMarker = new kakao.maps.CustomOverlay({
         position: myCurrentPosition,
         content: '<div style="font-size: 26px; background: white; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border: 2px solid #4A90E2;">🥵</div>'
     });
     currMarker.setMap(map);
-
-    // 지도가 이동하거나 확대/축소되었을 때 주변을 재검색하도록 이벤트 등록
-    kakao.maps.event.addListener(map, 'idle', function() {
-        searchCategories();
-    });
 
     // 탭 전환 함수
     function switchTab(tabType) {
@@ -169,74 +194,74 @@
         var paidBtn = document.getElementById('tab_paid');
         var menuWrap = document.getElementById('menu_wrap');
         var mainTitle = document.getElementById('main_title');
+        var searchInput = document.querySelector('.search_box input');
+        var searchBtn = document.getElementById('search_btn');
 
         if (tabType === 'free') {
             freeBtn.classList.add('active');
             paidBtn.classList.remove('active');
             menuWrap.style.borderRightColor = '#4A90E2';
             mainTitle.style.color = '#4A90E2';
+            searchInput.style.borderColor = '#4A90E2';
+            searchBtn.style.backgroundColor = '#4A90E2';
         } else {
             paidBtn.classList.add('active');
             freeBtn.classList.remove('active');
             menuWrap.style.borderRightColor = '#FFA500';
             mainTitle.style.color = '#FFA500';
+            searchInput.style.borderColor = '#FFA500';
+            searchBtn.style.backgroundColor = '#FFA500';
         }
 
-        // 탭이 바뀌면 현재 지도 중심 기준으로 카테고리 재검색
-        searchCategories();
+        // 탭이 바뀌면 기존 검색어로 다시 필터링해서 검색
+        searchPlaces();
     }
 
-    // 카테고리 다중 검색을 제어하는 함수
-    function searchCategories() {
-        removeMarker();
-        document.getElementById('placesList').innerHTML = '';
-        
-        // 현재 지도 영역 정보 가져오기 (이 범위 안의 장소만 찾음)
-        var searchOptions = {
-            location: map.getCenter(),
-            radius: 1000 // 중심점 기준 반경 1km 이내 검색
-        };
-
-        var codesToSearch = [];
-        if (currentTab === 'free') {
-            codesToSearch = ['BK9', 'PO3']; // 은행, 주민센터
-        } else {
-            codesToSearch = ['CS2', 'CE7']; // 편의점, 카페
+    // [핵심 변경] 검색창에 친 키워드와 선택된 탭의 카테고리를 조합해 검색하는 함수
+    function searchPlaces() {
+        var keyword = document.getElementById('keyword').value;
+        if (!keyword.replace(/^\s+|\s+$/g, '')) {
+            alert('키워드를 입력해주세요!');
+            return false;
         }
 
+        removeMarker();
+        document.getElementById('placesList').innerHTML = '';
+
+        // 현재 탭에 맞는 카테고리 코드 배열 설정
+        var codesToSearch = currentTab === 'free' ? ['BK9', 'PO3'] : ['CS2', 'CE7'];
         var combinedData = [];
         var completedCount = 0;
+        var bounds = new kakao.maps.LatLngBounds();
 
-        // 선택된 탭의 카테고리 코드들을 각각 검색하여 합치기
         codesToSearch.forEach(function(code) {
-            ps.categorySearch(code, function(data, status) {
+            // keywordSearch를 쓰되, 특정 카테고리 코드(category_group_code) 옵션을 주어 필터링 검색을 합니다.
+            ps.keywordSearch(keyword, function(data, status) {
                 if (status === kakao.maps.services.Status.OK) {
                     combinedData = combinedData.concat(data);
                 }
                 
                 completedCount++;
-                // 모든 카테고리 코드 검색이 끝났다면 마커와 리스트를 화면에 표시
+                // 무료/유료에 해당하는 모든 카테고리 조회가 끝났을 때
                 if (completedCount === codesToSearch.length) {
                     if (combinedData.length > 0) {
-                        displayPlaces(combinedData);
+                        displayPlaces(combinedData, bounds);
                     } else {
-                        document.getElementById('placesList').innerHTML = '<li style="text-align:center; color:#999; padding:20px;">주변에 대피할 장소가 없어요 🥲<br><small>(지도를 움직여보세요)</small></li>';
+                        document.getElementById('placesList').innerHTML = '<li style="text-align:center; color:#999; padding:20px;">이 동네에는 해당 대피소가 없어요 🥲</li>';
                     }
                 }
-            }, searchOptions);
+            }, { category_group_code: code }); // 카카오 API가 제공하는 카테고리 필터 옵션 적용
         });
     }
 
-    function displayPlaces(places) {
+    function displayPlaces(places, bounds) {
         var listEl = document.getElementById('placesList');
         
-        // 거리순 혹은 카테고리순 정렬 등 필요시 정렬 가능 (여기서는 API가 주는 기본 순서대로 처리)
         for (var i = 0; i < places.length; i++) {
             var placePosition = new kakao.maps.LatLng(places[i].y, places[i].x);
             
-            // 카테고리 코드별 이모티콘 및 색상 매칭
             var markerIcon = '🧊';
-            var markerColor = '#4A90E2'; // 기본 파란색
+            var markerColor = '#4A90E2';
             var categoryName = '';
 
             if (places[i].category_group_code === 'BK9') { markerIcon = '🏦'; categoryName = '은행'; }
@@ -244,7 +269,6 @@
             else if (places[i].category_group_code === 'CS2') { markerIcon = '🏪'; markerColor = '#FFA500'; categoryName = '편의점'; }
             else if (places[i].category_group_code === 'CE7') { markerIcon = '☕'; markerColor = '#FFA500'; categoryName = '카페'; }
 
-            // 커스텀 마커 인스턴스 생성
             var marker = new kakao.maps.CustomOverlay({
                 position: placePosition,
                 content: '<div style="background:' + markerColor + '; color:white; padding:5px 10px; border-radius:15px; font-size:12px; border:2px solid white; box-shadow:2px 2px 5px rgba(0,0,0,0.2);">' + markerIcon + '</div>'
@@ -253,11 +277,10 @@
             marker.setMap(map);
             markers.push(marker);
 
-            // 리스트 아이템 생성
             var itemEl = document.createElement('li');
             if (currentTab === 'paid') itemEl.classList.add('paid-hover');
             
-            itemEl.innerHTML = '<div><span class="category-tag" style="background:'+markerColor+'; color:white;">' + categoryName + '</span></div>' +
+            itemEl.innerHTML = '<div><span class="category-tag" style="background:'+markerColor+';">' + categoryName + '</span></div>' +
                                '<h5>' + places[i].place_name + '</h5>' +
                                '<span>' + (places[i].road_address_name || places[i].address_name) + '</span>';
             
@@ -268,7 +291,10 @@
             })(placePosition);
 
             listEl.appendChild(itemEl);
+            bounds.extend(placePosition);
         }
+        // 검색 결과 쉼터들이 한눈에 보이도록 지도 범위 조정
+        map.setBounds(bounds);
     }
 
     function removeMarker() {
@@ -278,8 +304,8 @@
         markers = [];
     }
 
-    // 초기 카테고리 검색 실행
-    searchCategories();
+    // 초기 검색 실행
+    searchPlaces();
 </script>
 </body>
 </html>
