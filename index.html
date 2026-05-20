@@ -8,9 +8,9 @@
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=c0aff5d8d60d26dbd5c92e48b0aeac3f&libraries=services"></script>
     <style>
         :root {
-            --point-blue: #4A90E2;  /* 메인 시원한 파란색 */
-            --point-mint: #A5D6A7;  /* 보조 싱그러운 민트색 */
-            --bg-ice: #F0F8FF;      /* 아리스 블루 배경색 */
+            --point-blue: #4A90E2;  /* 무료 탭 메인 컬러 */
+            --point-orange: #FFA500; /* 유료 탭 메인 컬러 */
+            --bg-ice: #F0F8FF;      
         }
 
         * { font-family: 'Gaegu', cursive; box-sizing: border-box; }
@@ -28,9 +28,9 @@
             flex-direction: column;
             border-right: 3px dashed var(--point-blue);
             position: relative;
+            transition: border-color 0.3s;
         }
 
-        /* 더위 대피 아이콘 데코레이션 */
         .ice-deco {
             position: absolute;
             top: 5px;
@@ -46,34 +46,38 @@
             text-align: center;
             font-size: 38px;
             margin-top: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             text-shadow: 2px 2px #E6F2FF;
+            transition: color 0.3s;
         }
 
-        .search_box { margin-bottom: 20px; position: relative; }
-        .search_box input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 3px solid var(--point-blue);
-            border-radius: 20px;
-            font-size: 20px;
-            outline: none;
+        /* 탭 버튼 스타일 */
+        .tab_container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        .search_box button {
-            position: absolute;
-            right: 5px;
-            top: 5px;
-            padding: 8px 15px;
-            background: var(--point-blue);
-            color: white;
-            border: none;
-            border-radius: 15px;
-            cursor: pointer;
+        .tab_btn {
+            flex: 1;
+            padding: 12px;
+            font-size: 18px;
             font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: white;
         }
+        
+        /* 무료 탭 전용 스타일 */
+        #tab_free { border: 2px solid var(--point-blue); color: var(--point-blue); }
+        #tab_free.active { background: var(--point-blue); color: white; }
+        
+        /* 유료 탭 전용 스타일 */
+        #tab_paid { border: 2px solid var(--point-orange); color: var(--point-orange); }
+        #tab_paid.active { background: var(--point-orange); color: white; }
 
         /* 리스트 스타일 */
-        #placesList { list-style: none; padding: 0; overflow-y: auto; flex: 1; }
+        #placesList { list-style: none; padding: 0; overflow-y: auto; flex: 1; margin: 0; }
         #placesList li {
             padding: 15px;
             margin-bottom: 10px;
@@ -87,8 +91,20 @@
             transform: scale(1.02); 
             border: 1px solid var(--point-blue);
         }
+        .paid-hover:hover {
+            border-color: var(--point-orange) !important;
+        }
         #placesList li h5 { color: #1A5276; font-size: 22px; margin: 0 0 5px 0; }
         #placesList li span { font-size: 16px; color: #666; }
+        .category-tag {
+            display: inline-block;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: #ddd;
+            color: #333;
+            margin-bottom: 5px;
+        }
 
         /* 오른쪽 지도 */
         #map { flex: 1; height: 100%; }
@@ -101,18 +117,17 @@
         <div class="ice-deco">
             <span title="에어컨">🍃</span>
             <span title="얼음">🧊</span>
-            <span title="그늘막">⛱️</span>
+            <span title="커피">☕</span>
             <span title="수박">🍉</span>
         </div>
         
-        <h1>더위 피하는 지도</h1>
+        <h1 id="main_title">더위 피하는 지도</h1>
         
-        <div class="search_box">
-            <form onsubmit="searchPlaces(); return false;">
-                <input type="text" value="무더위 쉼터" id="keyword" placeholder="쉼터나 은행을 검색해보세요!">
-                <button type="submit">찾기</button>
-            </form>
+        <div class="tab_container">
+            <button id="tab_free" class="tab_btn active" onclick="switchTab('free')">무료 쉼터 🏛️</button>
+            <button id="tab_paid" class="tab_btn" onclick="switchTab('paid')">유료 쉼터 ☕</button>
         </div>
+        
         <ul id="placesList"></ul>
     </div>
 
@@ -123,14 +138,17 @@
     var mapContainer = document.getElementById('map'); 
     var mapOption = { 
         center: new kakao.maps.LatLng(37.556, 126.97), /* 서울 중심부 */
-        level: 6 
+        level: 5 /* 카테고리 검색 특성상 주변을 잘 보게 하기 위해 레벨을 조금 확대했습니다 */
     }; 
 
     var map = new kakao.maps.Map(mapContainer, mapOption); 
     var ps = new kakao.maps.services.Places();  
     var markers = [];
+    
+    // 현재 선택된 탭 상태 ('free' 또는 'paid')
+    var currentTab = 'free'; 
 
-    // [내 위치 표시용 마커] 더워서 지친 땀방울 이모티콘 (🥵)
+    // [내 위치 마커] 더워서 지친 땀방울 이모티콘 (🥵)
     var myCurrentPosition = new kakao.maps.LatLng(37.556, 126.97);
     var currMarker = new kakao.maps.CustomOverlay({
         position: myCurrentPosition,
@@ -138,36 +156,110 @@
     });
     currMarker.setMap(map);
 
-    function searchPlaces() {
-        var keyword = document.getElementById('keyword').value;
-        ps.keywordSearch(keyword, function(data, status) {
-            if (status === kakao.maps.services.Status.OK) {
-                displayPlaces(data);
-            }
-        }); 
+    // 지도가 이동하거나 확대/축소되었을 때 주변을 재검색하도록 이벤트 등록
+    kakao.maps.event.addListener(map, 'idle', function() {
+        searchCategories();
+    });
+
+    // 탭 전환 함수
+    function switchTab(tabType) {
+        currentTab = tabType;
+        
+        var freeBtn = document.getElementById('tab_free');
+        var paidBtn = document.getElementById('tab_paid');
+        var menuWrap = document.getElementById('menu_wrap');
+        var mainTitle = document.getElementById('main_title');
+
+        if (tabType === 'free') {
+            freeBtn.classList.add('active');
+            paidBtn.classList.remove('active');
+            menuWrap.style.borderRightColor = '#4A90E2';
+            mainTitle.style.color = '#4A90E2';
+        } else {
+            paidBtn.classList.add('active');
+            freeBtn.classList.remove('active');
+            menuWrap.style.borderRightColor = '#FFA500';
+            mainTitle.style.color = '#FFA500';
+        }
+
+        // 탭이 바뀌면 현재 지도 중심 기준으로 카테고리 재검색
+        searchCategories();
+    }
+
+    // 카테고리 다중 검색을 제어하는 함수
+    function searchCategories() {
+        removeMarker();
+        document.getElementById('placesList').innerHTML = '';
+        
+        // 현재 지도 영역 정보 가져오기 (이 범위 안의 장소만 찾음)
+        var searchOptions = {
+            location: map.getCenter(),
+            radius: 1000 // 중심점 기준 반경 1km 이내 검색
+        };
+
+        var codesToSearch = [];
+        if (currentTab === 'free') {
+            codesToSearch = ['BK9', 'PO3']; // 은행, 주민센터
+        } else {
+            codesToSearch = ['CS2', 'CE7']; // 편의점, 카페
+        }
+
+        var combinedData = [];
+        var completedCount = 0;
+
+        // 선택된 탭의 카테고리 코드들을 각각 검색하여 합치기
+        codesToSearch.forEach(function(code) {
+            ps.categorySearch(code, function(data, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    combinedData = combinedData.concat(data);
+                }
+                
+                completedCount++;
+                // 모든 카테고리 코드 검색이 끝났다면 마커와 리스트를 화면에 표시
+                if (completedCount === codesToSearch.length) {
+                    if (combinedData.length > 0) {
+                        displayPlaces(combinedData);
+                    } else {
+                        document.getElementById('placesList').innerHTML = '<li style="text-align:center; color:#999; padding:20px;">주변에 대피할 장소가 없어요 🥲<br><small>(지도를 움직여보세요)</small></li>';
+                    }
+                }
+            }, searchOptions);
+        });
     }
 
     function displayPlaces(places) {
-        var listEl = document.getElementById('placesList'), 
-            bounds = new kakao.maps.LatLngBounds();
+        var listEl = document.getElementById('placesList');
         
-        listEl.innerHTML = '';
-        removeMarker();
-
-        for (var i=0; i<places.length; i++) {
+        // 거리순 혹은 카테고리순 정렬 등 필요시 정렬 가능 (여기서는 API가 주는 기본 순서대로 처리)
+        for (var i = 0; i < places.length; i++) {
             var placePosition = new kakao.maps.LatLng(places[i].y, places[i].x);
             
-            // 시원한 하늘색의 쉼터 커스텀 마커 생성 (얼음 아이콘 🧊)
+            // 카테고리 코드별 이모티콘 및 색상 매칭
+            var markerIcon = '🧊';
+            var markerColor = '#4A90E2'; // 기본 파란색
+            var categoryName = '';
+
+            if (places[i].category_group_code === 'BK9') { markerIcon = '🏦'; categoryName = '은행'; }
+            else if (places[i].category_group_code === 'PO3') { markerIcon = '🏛️'; categoryName = '주민센터'; }
+            else if (places[i].category_group_code === 'CS2') { markerIcon = '🏪'; markerColor = '#FFA500'; categoryName = '편의점'; }
+            else if (places[i].category_group_code === 'CE7') { markerIcon = '☕'; markerColor = '#FFA500'; categoryName = '카페'; }
+
+            // 커스텀 마커 인스턴스 생성
             var marker = new kakao.maps.CustomOverlay({
                 position: placePosition,
-                content: '<div style="background:#4A90E2; color:white; padding:5px 10px; border-radius:15px; font-size:12px; border:2px solid white; box-shadow:2px 2px 5px rgba(0,0,0,0.2);">🧊</div>'
+                content: '<div style="background:' + markerColor + '; color:white; padding:5px 10px; border-radius:15px; font-size:12px; border:2px solid white; box-shadow:2px 2px 5px rgba(0,0,0,0.2);">' + markerIcon + '</div>'
             });
             
             marker.setMap(map);
             markers.push(marker);
 
+            // 리스트 아이템 생성
             var itemEl = document.createElement('li');
-            itemEl.innerHTML = '<h5>' + places[i].place_name + '</h5><span>' + (places[i].road_address_name || places[i].address_name) + '</span>';
+            if (currentTab === 'paid') itemEl.classList.add('paid-hover');
+            
+            itemEl.innerHTML = '<div><span class="category-tag" style="background:'+markerColor+'; color:white;">' + categoryName + '</span></div>' +
+                               '<h5>' + places[i].place_name + '</h5>' +
+                               '<span>' + (places[i].road_address_name || places[i].address_name) + '</span>';
             
             (function(pos) {
                 itemEl.onclick = function() {
@@ -176,9 +268,7 @@
             })(placePosition);
 
             listEl.appendChild(itemEl);
-            bounds.extend(placePosition);
         }
-        map.setBounds(bounds);
     }
 
     function removeMarker() {
@@ -188,8 +278,8 @@
         markers = [];
     }
 
-    // 초기 검색 실행
-    searchPlaces();
+    // 초기 카테고리 검색 실행
+    searchCategories();
 </script>
 </body>
 </html>
