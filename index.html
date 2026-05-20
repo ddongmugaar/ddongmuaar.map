@@ -133,20 +133,39 @@
 <script>
     var mapContainer = document.getElementById('map'); 
     var mapOption = { 
-        center: new kakao.maps.LatLng(37.66, 126.83), 
-        level: 5 
+        center: new kakao.maps.LatLng(37.556, 126.97), /* 서울 중심부로 초기 위치 변경 */
+        level: 7 
     }; 
 
     var map = new kakao.maps.Map(mapContainer, mapOption); 
     var ps = new kakao.maps.services.Places();  
     var markers = [];
 
-    // 현재 위치 표시용 마커 (하늘색 원)
+    // [기능 추가 1] 내 현재 위치 표시용 마커 (하트 눈 이모티콘 😍)
+    var myCurrentPosition = new kakao.maps.LatLng(37.556, 126.97);
     var currMarker = new kakao.maps.CustomOverlay({
-        position: new kakao.maps.LatLng(37.66, 126.83),
-        content: '<div style="width:20px; height:20px; background: skyblue; border:3px solid white; border-radius:50%; box-shadow: 0 0 10px rgba(0,0,0,0.3);"></div>'
+        position: myCurrentPosition,
+        content: '<div style="font-size: 26px; background: white; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(0,0,0,0.2); border: 2px solid #ff8fa3;">😍</div>'
     });
     currMarker.setMap(map);
+
+    // [기능 추가 2] 서울 주요 빵지순례길 핫플레이스 경로 좌표 설정 (연남 -> 성수 -> 압구정)
+    var bakeryRoutePath = [
+        new kakao.maps.LatLng(37.561, 126.924), // 연남동 레이어드/랜디스 인근
+        new kakao.maps.LatLng(37.544, 127.056), // 성수동 어니언/밀도 인근
+        new kakao.maps.LatLng(37.524, 127.036)  // 압구정 노티드/런던베이글 인근
+    ];
+
+    // 지도에 순례길 선(Polyline) 그리기
+    var bakeryPolyline = new kakao.maps.Polyline({
+        path: bakeryRoutePath, // 선을 구성하는 좌표 배열
+        strokeWeight: 5,       // 선의 두께
+        strokeColor: '#FFA6B9', // 선의 색상 (달콤한 핑크)
+        strokeOpacity: 0.8,    // 선의 불투명도
+        strokeStyle: 'dash'    // 선의 스타일 (점선으로 순례길 느낌 강조)
+    });
+
+    bakeryPolyline.setMap(map);
 
     function searchPlaces() {
         var keyword = document.getElementById('keyword').value;
@@ -188,6 +207,7 @@
             listEl.appendChild(itemEl);
             bounds.extend(placePosition);
         }
+        // 검색 결과에 맞춰 지도를 움직이되, 순례길도 함께 볼 수 있도록 구성됨
         map.setBounds(bounds);
     }
 
